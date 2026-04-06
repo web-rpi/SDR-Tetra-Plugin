@@ -202,10 +202,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          gh release delete "${{ steps.release_meta.outputs.tag }}" --cleanup-tag --yes || true
+          gh release delete "${{ steps.release_meta.outputs.tag }}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --cleanup-tag \
+            --yes || true
 
           gh release create "${{ steps.release_meta.outputs.tag }}" \
             release/assets/* \
+            --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "${{ steps.release_meta.outputs.title }}" \
             --notes-file release/release_notes.md \
