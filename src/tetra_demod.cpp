@@ -357,6 +357,11 @@ namespace tetra {
             digitalBuffer[index] = angleWindow_[static_cast<std::size_t>(offset + lastSample)];
         }
 
+        // The original SDR# demodulator advances the rolling buffer by the
+        // sample position of symbol index 255, while only exporting 255
+        // decoded symbols. Using the last emitted symbol index here leaves the
+        // window behind by roughly one symbol and breaks MAC CRC over time.
+        lastSample = static_cast<int>(std::llround(BURST_SYMBOL_COUNT * symbolLength_));
         offset += lastSample;
         offset -= tailBufferLength_ * 2;
         if (offset < 0) {

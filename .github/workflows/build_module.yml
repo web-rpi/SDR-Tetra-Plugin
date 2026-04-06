@@ -146,3 +146,67 @@ jobs:
           name: tetra_decoder_windows_pdb
           path: build/${{ env.BUILD_TYPE }}/tetra_decoder.pdb
           if-no-files-found: ignore
+
+  release:
+    if: github.event_name == 'push' && github.ref_type == 'branch'
+    needs:
+      - build_linux_latest
+      - build_windows
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: tetra_decoder_linux
+          path: release/linux
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: tetra_decoder_windows
+          path: release/windows
+
+      - name: Prepare release metadata and assets
+        id: release_meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::7}"
+          safe_branch="$(printf '%s' "${GITHUB_REF_NAME}" | tr '/:@ ' '-' | tr -cd '[:alnum:]._-' )"
+          tag="build-${safe_branch}-${short_sha}"
+          title="Build ${GITHUB_REF_NAME} ${short_sha}"
+
+          mkdir -p release/assets
+          mv release/linux/tetra_decoder.so "release/assets/tetra_decoder-${safe_branch}-${short_sha}-linux-x86_64.so"
+          mv release/windows/tetra_decoder.dll "release/assets/tetra_decoder-${safe_branch}-${short_sha}-windows-x64.dll"
+
+          cat > release/release_notes.md <<EOF
+          Automated SDR++ module build.
+
+          Branch: ${GITHUB_REF_NAME}
+          Commit: ${GITHUB_SHA}
+          Short commit: ${short_sha}
+          Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "title=${title}" >> "${GITHUB_OUTPUT}"
+
+      - name: Recreate release for current push
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release delete "${{ steps.release_meta.outputs.tag }}" --cleanup-tag --yes || true
+
+          gh release create "${{ steps.release_meta.outputs.tag }}" \
+            release/assets/* \
+            --target "${GITHUB_SHA}" \
+            --title "${{ steps.release_meta.outputs.title }}" \
+            --notes-file release/release_notes.md \
+            --prerelease
