@@ -333,7 +333,8 @@ namespace tetra {
             dsp::complex_t delayed = (i < tailBufferLength_)
                 ? symbolTail_[static_cast<std::size_t>(i)]
                 : filtered[static_cast<std::size_t>(i - tailBufferLength_)];
-            angleWindow_[static_cast<std::size_t>(writeAddress_++)] = (filtered[static_cast<std::size_t>(i)] * delayed.conj()).fastPhase();
+            dsp::complex_t sample = filtered[static_cast<std::size_t>(i)];
+            angleWindow_[static_cast<std::size_t>(writeAddress_++)] = (sample * delayed.conj()).fastPhase();
         }
 
         if (count >= tailBufferLength_) {

@@ -4,6 +4,8 @@ project(tetra_decoder)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Threads REQUIRED)
+
 file(GLOB SRC "src/*.cpp")
 
 if (NOT DEFINED SDRPP_MODULE_CMAKE)
@@ -83,6 +85,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE "src")
 if (WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
 endif ()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 
 if (UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_DL_LIBS})
