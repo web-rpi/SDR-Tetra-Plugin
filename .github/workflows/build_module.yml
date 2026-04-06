@@ -1,0 +1,107 @@
+name: Build SDR++ Module
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build_linux_latest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repo checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: Get SDR++ master source
+        run: git clone --depth 1 https://github.com/AlexandreRouma/SDRPlusPlus.git sdrpp_src
+
+      - name: Get SDR++ nightly lib
+        run: gh release download nightly --repo AlexandreRouma/SDRPlusPlus --pattern sdrpp_debian_sid_amd64.deb --dir sdrpp_assets
+
+      - name: Unpack SDR++ nightly lib
+        run: mkdir -p sdrpp_lib && dpkg-deb -x sdrpp_assets/sdrpp_debian_sid_amd64.deb sdrpp_lib
+
+      - name: Configure CMake
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+          -DSDRPP_CORE_ROOT="$GITHUB_WORKSPACE/sdrpp_src/core"
+          -DSDRPP_LIB_ROOT="$GITHUB_WORKSPACE/sdrpp_lib/usr/lib"
+          -DSDRPP_MODULE_CMAKE="$GITHUB_WORKSPACE/.github/workflows/sdrpp_module_hack.cmake"
+
+      - name: Build module
+        run: cmake --build build --verbose
+
+      - name: Show linked libraries
+        run: ldd build/tetra_decoder.so
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tetra_decoder_linux
+          path: build/tetra_decoder.so
+
+  build_windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Repo checkout
+        uses: actions/checkout@v4
+
+      - name: Create build environment
+        run: cmake -E make_directory build
+
+      - name: Get SDR++ master source
+        run: git clone --depth 1 https://github.com/AlexandreRouma/SDRPlusPlus.git sdrpp_src
+
+      - name: Get SDR++ nightly lib
+        run: gh release download nightly --repo AlexandreRouma/SDRPlusPlus --pattern sdrpp_windows_x64.zip --dir sdrpp_assets
+
+      - name: Unpack SDR++ nightly lib
+        run: 7z x sdrpp_assets/sdrpp_windows_x64.zip -osdrpp_lib
+
+      - name: Prepare MinGW tools
+        run: C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "pacman --noconfirm -S --needed mingw-w64-x86_64-binutils mingw-w64-x86_64-tools"
+
+      - name: Generate sdrpp_core.def
+        working-directory: sdrpp_lib/sdrpp_windows_x64
+        run: C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "gendef sdrpp_core.dll"
+
+      - name: Generate sdrpp_core.lib
+        working-directory: sdrpp_lib/sdrpp_windows_x64
+        run: C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "dlltool -d sdrpp_core.def -l sdrpp_core.lib"
+
+      - name: Configure CMake
+        run: >
+          cmake -S $Env:GITHUB_WORKSPACE -B build -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_BUILD_TYPE="$Env:BUILD_TYPE"
+          -DSDRPP_CORE_ROOT="$Env:GITHUB_WORKSPACE/sdrpp_src/core"
+          -DSDRPP_LIB_ROOT="$Env:GITHUB_WORKSPACE/sdrpp_lib/sdrpp_windows_x64"
+          -DSDRPP_MODULE_CMAKE="$Env:GITHUB_WORKSPACE/.github/workflows/sdrpp_module_hack.cmake"
+
+      - name: Build module
+        run: cmake --build build --config $Env:BUILD_TYPE --verbose
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tetra_decoder_windows
+          path: build/${{ env.BUILD_TYPE }}/tetra_decoder.dll
+
+      - name: Upload Windows PDB
+        uses: actions/upload-artifact@v4
+        with:
+          name: tetra_decoder_windows_pdb
+          path: build/${{ env.BUILD_TYPE }}/tetra_decoder.pdb
+          if-no-files-found: ignore

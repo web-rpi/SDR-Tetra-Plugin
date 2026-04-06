@@ -1,34 +1,54 @@
 # SDR-Tetra-Plugin
-## Plugin to SDR# to interprete TETRA signals in .net5
 
-With this plugin try to help anyone how me, that are insterested in how works Tetra radio links, and try this in laboratory Trunked Radios
+This branch adds a native SDR++ module scaffold for the old SDR# TETRA plugin and keeps the original C# sources in the repository as the legacy reference implementation.
 
-#### Origin
-- Based in http://rtl-sdr.ru/page/plagin-dlja-priema-tetra
-- Using SDR# Plugin SDK for .NET 5 https://airspy.com/?ddownload=5944
+## Current layout
 
-### Status
-Testted in SDR# 1810
-We are trying to understand how it's work and make better functionallyties.
+- `src/main.cpp`: native SDR++ module entry point
+- `CMakeLists.txt`: standalone CMake build for SDR++
+- `docs/PORTING.md`: migration notes from SDR# to SDR++
+- `*.cs`, `Decoder/*.cs`, `Parsers/*.cs`: legacy SDR# implementation
 
-### Pending
-- Documentation of functions.
-- Optimice teh decompiled files.
+## SDR++ status
 
-## Help and collaborate
-Please if you like this plugin don't remember start it and give us feedback about functionallyties and issues.
-### Install
-1- Download the lastest SDK for SDR# https://airspy.com/download/ and extract the files
-2- Clone the project inside the extracted folder
-3- Update file ``Properties/launchSettings.json`` and edit the ``executablePath`` to the path of your SDK folder.
-4- Execute Visual Studio and click in Debug `"SDRSharp.Plugin.Tetra"`
+The repository is now structured as an SDR++ module:
 
-# --- Disclaimer ---
+- native `ModuleManager::Instance` entry point
+- SDR++ VFO creation and teardown
+- ImGui-based module menu
+- persistent module settings
+- live IQ stream hook for the future decoder chain
+- native decoder foundation for TETRA bit/FEC processing
 
-* The program is licenced under MIT (license text is also included in the file LICENSE).
-* NO guarantees or warranty for any damage or similar!!
-* I may not be held responsible for anything associated with the use of this tool.
-* Usage at your own risk !!
-* Check laws of your country first! Some Frequencies are prohibited/illegal or need a HAM-Licenses!
-* Listening / Spying & Decoding on encrypted frequencies/channels without permission is illegal!
+The TETRA DSP/parser core is not fully ported to native SDR++ yet. The old SDR# code is still present and is the source for the next migration step.
+
+## Build for SDR++
+
+You need an SDR++ source tree with its usual dependencies available.
+
+Example:
+
+```powershell
+cmake -S . -B build -DSDRPP_ROOT=C:\path\to\SDRPlusPlus
+cmake --build build --config Release
+```
+
+The resulting module is named `tetra_decoder`.
+
+## Legacy SDR# code
+
+The original SDR# project is still in the repository:
+
+- `SDRSharp.Plugin.Tetra1.2.csproj`
+- `TetraPlugin.cs`
+- `TetraPanel.cs`
+
+That code is no longer the primary integration target on this branch.
+
+# Disclaimer
+
+- The program is licensed under MIT.
+- Use it at your own risk.
+- Check the law in your country before receiving or decoding radio traffic.
+- Decoding encrypted traffic without authorization may be illegal.
 
